@@ -216,7 +216,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     }
 
     @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
         if (requestCode == RC_HINT) {
             if (resultCode == Activity.RESULT_OK) {
                 hintPromise.resolve(data.getParcelableExtra(Credential.EXTRA_KEY));
@@ -239,5 +239,10 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 saveCredentialsPromise.reject("408", "SAVE: Canceled by user");
             }
         }
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+
     }
 }
