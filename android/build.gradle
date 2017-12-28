@@ -28,9 +28,13 @@ android {
 
 repositories {
     mavenCentral()
+    maven {
+        url "https://maven.google.com"
+    }
 }
 
 dependencies {
     compile 'com.facebook.react:react-native:+'
-    compile 'com.google.android.gms:play-services-auth:9.8.0'
+    compile 'com.google.android.gms:play-services-auth:11.8.0'
+    compile 'com.google.code.gson:gson:2.8.1'
 }

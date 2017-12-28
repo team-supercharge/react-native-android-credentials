@@ -17,6 +17,9 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableArray;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.Arguments;
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.credentials.Credential;
 import com.google.android.gms.auth.api.credentials.CredentialPickerConfig;
@@ -30,6 +33,14 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Result;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import com.google.gson.Gson;
 
 public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
         implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
@@ -39,8 +50,10 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     private static final int RC_READ = 68;
     private static final int RC_SAVE = 469;
 
+    private static final Gson gson = new Gson();
+
     private final ReactApplicationContext reactContext;
-    private final GoogleApiClient credentialsApiClient;
+    private GoogleApiClient credentialsApiClient;
     private CredentialRequest credentialRequest;
 
     private Promise hintPromise;
@@ -50,12 +63,17 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     public RNAndroidCredentialsModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
-        this.credentialsApiClient =
-                new GoogleApiClient.Builder(reactContext).addConnectionCallbacks(this)
-                        .enableAutoManage((FragmentActivity) getCurrentActivity(), this)
-                        .addApi(Auth.CREDENTIALS_API)
-                        .build();
         reactContext.addActivityEventListener(this);
+    }
+
+    public GoogleApiClient getCredentialsApiClient() {
+        if (this.credentialsApiClient == null) {
+            this.credentialsApiClient = new GoogleApiClient.Builder(reactContext).addConnectionCallbacks(this)
+                .enableAutoManage((FragmentActivity) getCurrentActivity(), this)
+                .addApi(Auth.CREDENTIALS_API)
+                .build();
+        }
+        return this.credentialsApiClient;
     }
 
     private String[] parseStringReadableArray(ReadableArray readableArray) {
@@ -88,21 +106,6 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                         .build();
     }
 
-    @ReactMethod
-    public void init(
-            boolean passwordLoginSupported,
-            @Nullable ReadableMap credentialPickerConfig,
-            @Nullable ReadableMap credentialHintPickerConfig,
-            String identityProvider) {
-        credentialRequest =
-                new CredentialRequest.Builder()
-                        .setPasswordLoginSupported(passwordLoginSupported)
-                        .setAccountTypes(identityProvider)
-                        .setCredentialPickerConfig(parseCredentialPickerConfig(credentialPickerConfig))
-                        .setCredentialPickerConfig(parseCredentialPickerConfig(credentialHintPickerConfig))
-                        .build();
-    }
-
     @Override
     public String getName() {
         return "RNAndroidCredentials";
@@ -120,7 +123,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                         .build();
 
         PendingIntent intent =
-                Auth.CredentialsApi.getHintPickerIntent(credentialsApiClient, hintRequest);
+                Auth.CredentialsApi.getHintPickerIntent(getCredentialsApiClient(), hintRequest);
         hintPromise = promise;
         try {
             getCurrentActivity().startIntentSenderForResult(intent.getIntentSender(),
@@ -134,16 +137,31 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
         }
     }
 
+    private WritableMap parseCredential(Credential credential) {
+        WritableMap result = Arguments.createMap();
+        result.putString("accountType", credential.getAccountType());
+        result.putString("familyName", credential.getFamilyName());
+        result.putString("generatedPassword", credential.getGeneratedPassword());
+        result.putString("givenName", credential.getGivenName());
+        result.putString("id", credential.getId());
+        result.putString("name", credential.getName());
+        result.putString("password", credential.getPassword());
+        if (credential.getProfilePictureUri() != null)
+            result.putString("profilePicture", credential.getProfilePictureUri().toString());
+
+        return result;
+    }
+
     @ReactMethod
-    public void requestCredentials(Promise promise) {
+    public void requestCredentials(boolean promptIfMore, Promise promise) {
         credentialRequestPromise = promise;
 
-        Auth.CredentialsApi.request(credentialsApiClient, credentialRequest)
+        Auth.CredentialsApi.request(getCredentialsApiClient(), credentialRequest)
                 .setResultCallback(new ResultCallback<CredentialRequestResult>() {
                     @Override
                     public void onResult(@NonNull CredentialRequestResult credentialRequestResult) {
                         if (credentialRequestResult.getStatus().isSuccess()) {
-                            credentialRequestPromise.resolve(credentialRequestResult.getCredential());
+                            credentialRequestPromise.resolve(parseCredential(credentialRequestResult.getCredential()));
                         } else {
                             resolveResult(credentialRequestResult.getStatus());
                         }
@@ -158,13 +176,13 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 .setPassword(password)
                 .build();
 
-        Auth.CredentialsApi.save(credentialsApiClient, credential).setResultCallback(
+        Auth.CredentialsApi.save(getCredentialsApiClient(), credential).setResultCallback(
                 new ResultCallback<Result>() {
                     @Override
-                    public void onResult(Result result) {
+                    public void onResult(@NonNull Result result) {
                         Status status = result.getStatus();
                         if (status.isSuccess()) {
-                            promise.resolve(status);
+                            promise.resolve(null);
                         } else {
                             if (status.hasResolution()) {
                                 try {
@@ -180,8 +198,8 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 });
     }
 
-    private void resolveResult(Status status) {
-        if (status.getStatusCode() == CommonStatusCodes.RESOLUTION_REQUIRED) {
+    private void resolveResult(boolean promptIfMore, Status status) {
+        if (status.getStatusCode() == CommonStatusCodes.RESOLUTION_REQUIRED && promptIfMore) {
             try {
                 status.startResolutionForResult(getCurrentActivity(), RC_READ);
             } catch (IntentSender.SendIntentException e) {
@@ -195,8 +213,8 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     }
 
     @ReactMethod
-    public void disableAutoSignin() {
-        Auth.CredentialsApi.disableAutoSignIn(credentialsApiClient);
+    public void disableAutoSignIn() {
+        Auth.CredentialsApi.disableAutoSignIn(getCredentialsApiClient());
     }
 
     @Override
@@ -219,7 +237,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
         if (requestCode == RC_HINT) {
             if (resultCode == Activity.RESULT_OK) {
-                hintPromise.resolve(data.getParcelableExtra(Credential.EXTRA_KEY));
+                hintPromise.resolve(parseCredential((Credential) data.getParcelableExtra(Credential.EXTRA_KEY)));
             } else {
                 hintPromise.reject("404", "Unable to resolve intent");
             }
@@ -227,14 +245,14 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
         if (requestCode == RC_READ) {
             if (resultCode == Activity.RESULT_OK) {
                 Credential credential = data.getParcelableExtra(Credential.EXTRA_KEY);
-                credentialRequestPromise.resolve(credential);
+                credentialRequestPromise.resolve(parseCredential(credential));
             } else {
                 credentialRequestPromise.reject("405", "Credential Read: NOT OK");
             }
         }
         if (requestCode == RC_SAVE) {
             if (resultCode == Activity.RESULT_OK) {
-                saveCredentialsPromise.resolve(data.getParcelableExtra(Credential.EXTRA_KEY));
+                saveCredentialsPromise.resolve(parseCredential((Credential) data.getParcelableExtra(Credential.EXTRA_KEY)));
             } else {
                 saveCredentialsPromise.reject("408", "SAVE: Canceled by user");
             }
@@ -244,5 +262,68 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     @Override
     public void onNewIntent(Intent intent) {
 
+    }
+
+    private static WritableMap toReact(Object o) {
+        try {
+            if (o instanceof List) {
+                throw new JSONException("Expected non-list object! Use toReactArray instead!");
+            }
+            return jsonToReact(new JSONObject(gson.toJson(o)));
+        } catch (JSONException jse) {
+            return Arguments.createMap();
+        }
+    }
+
+    private static WritableArray toReactArray(List list) {
+        try {
+            return jsonToReact(new JSONArray(gson.toJson(list)));
+        } catch (JSONException jse) {
+            return Arguments.createArray();
+        }
+    }
+
+    private static WritableMap jsonToReact(JSONObject jsonObject) throws JSONException {
+        WritableMap writableMap = Arguments.createMap();
+        Iterator iterator = jsonObject.keys();
+        while (iterator.hasNext()) {
+            String key = (String) iterator.next();
+            Object value = jsonObject.get(key);
+            if (value instanceof Float || value instanceof Double) {
+                writableMap.putDouble(key, jsonObject.getDouble(key));
+            } else if (value instanceof Number) {
+                writableMap.putInt(key, jsonObject.getInt(key));
+            } else if (value instanceof String) {
+                writableMap.putString(key, jsonObject.getString(key));
+            } else if (value instanceof JSONObject) {
+                writableMap.putMap(key, jsonToReact(jsonObject.getJSONObject(key)));
+            } else if (value instanceof JSONArray) {
+                writableMap.putArray(key, jsonToReact(jsonObject.getJSONArray(key)));
+            } else if (value == JSONObject.NULL) {
+                writableMap.putNull(key);
+            }
+        }
+        return writableMap;
+    }
+
+    private static WritableArray jsonToReact(@NonNull JSONArray jsonArray) throws JSONException {
+        WritableArray writableArray = Arguments.createArray();
+        for (int i = 0; i < jsonArray.length(); i++) {
+            Object value = jsonArray.get(i);
+            if (value instanceof Float || value instanceof Double) {
+                writableArray.pushDouble(jsonArray.getDouble(i));
+            } else if (value instanceof Number) {
+                writableArray.pushInt(jsonArray.getInt(i));
+            } else if (value instanceof String) {
+                writableArray.pushString(jsonArray.getString(i));
+            } else if (value instanceof JSONObject) {
+                writableArray.pushMap(jsonToReact(jsonArray.getJSONObject(i)));
+            } else if (value instanceof JSONArray) {
+                writableArray.pushArray(jsonToReact(jsonArray.getJSONArray(i)));
+            } else if (value == JSONObject.NULL) {
+                writableArray.pushNull();
+            }
+        }
+        return writableArray;
     }
 }

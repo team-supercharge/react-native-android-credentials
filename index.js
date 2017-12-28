@@ -51,11 +51,11 @@ const AndroidCredentials = {
         passwordLoginSupported,
         credentialPickerConfig,
         credentialHintPickerConfig,
-        identityProviders
+        [].push(identityProviders)
     ),
     showSignInHint: (showCancelButton) => Promise.reject(new Error(`not supported on ${Platform.OS} yet`)),
     disableAutoSignIn: () => RNAndroidCredentials.disableAutoSignIn(),
-    requestCredentials: () => RNAndroidCredentials.requestCredentials(),
+    requestCredentials: (promptIfMore = false) => RNAndroidCredentials.requestCredentials(promptIfMore),
     saveCredentials: (email, password) => RNAndroidCredentials.saveCredentials(email, password),
 }
 
