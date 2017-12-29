@@ -53,7 +53,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     private static final Gson gson = new Gson();
 
     private final ReactApplicationContext reactContext;
-    private GoogleApiClient credentialsApiClient;
+    private final GoogleApiClient credentialsApiClient;
     private CredentialRequest credentialRequest;
 
     private Promise hintPromise;
@@ -63,19 +63,12 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     public RNAndroidCredentialsModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
-        reactContext.addActivityEventListener(this);
-    }
-
-    public GoogleApiClient getCredentialsApiClient() {
-        if (this.credentialsApiClient == null) {
-            this.credentialsApiClient = new GoogleApiClient.Builder(reactContext).addConnectionCallbacks(this)
+        this.credentialsApiClient = new GoogleApiClient.Builder(reactContext)
+                .addConnectionCallbacks(this)
                 .addApi(Auth.CREDENTIALS_API)
                 .build();
-        }
-        if (!this.credentialsApiClient.isConnected()) {
-            this.credentialsApiClient.blockingConnect();
-        }
-        return this.credentialsApiClient;
+        this.credentialsApiClient.connect();
+        reactContext.addActivityEventListener(this);
     }
 
     private String[] parseStringReadableArray(ReadableArray readableArray) {
@@ -125,7 +118,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                         .build();
 
         PendingIntent intent =
-                Auth.CredentialsApi.getHintPickerIntent(getCredentialsApiClient(), hintRequest);
+                Auth.CredentialsApi.getHintPickerIntent(credentialsApiClient, hintRequest);
         hintPromise = promise;
         try {
             getCurrentActivity().startIntentSenderForResult(intent.getIntentSender(),
@@ -158,7 +151,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     public void requestCredentials(final boolean promptIfMore, Promise promise) {
         credentialRequestPromise = promise;
 
-        Auth.CredentialsApi.request(getCredentialsApiClient(), credentialRequest)
+        Auth.CredentialsApi.request(credentialsApiClient, credentialRequest)
                 .setResultCallback(new ResultCallback<CredentialRequestResult>() {
                     @Override
                     public void onResult(@NonNull CredentialRequestResult credentialRequestResult) {
@@ -178,7 +171,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 .setPassword(password)
                 .build();
 
-        Auth.CredentialsApi.save(getCredentialsApiClient(), credential).setResultCallback(
+        Auth.CredentialsApi.save(credentialsApiClient, credential).setResultCallback(
                 new ResultCallback<Result>() {
                     @Override
                     public void onResult(@NonNull Result result) {
@@ -218,8 +211,8 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
 
     @ReactMethod
     public void disableAutoSignIn() {
-        if (getCredentialsApiClient().isConnected()){
-            Auth.CredentialsApi.disableAutoSignIn(getCredentialsApiClient());
+        if (credentialsApiClient.isConnected()){
+            Auth.CredentialsApi.disableAutoSignIn(credentialsApiClient);
         }
     }
 
