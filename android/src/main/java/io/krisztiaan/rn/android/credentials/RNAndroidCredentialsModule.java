@@ -72,6 +72,9 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 .addApi(Auth.CREDENTIALS_API)
                 .build();
         }
+        if (!this.credentialsApiClient.isConnected()) {
+            this.credentialsApiClient.blockingConnect();
+        }
         return this.credentialsApiClient;
     }
 
