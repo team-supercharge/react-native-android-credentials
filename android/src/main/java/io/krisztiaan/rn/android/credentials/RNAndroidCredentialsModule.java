@@ -153,7 +153,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     }
 
     @ReactMethod
-    public void requestCredentials(boolean promptIfMore, Promise promise) {
+    public void requestCredentials(final boolean promptIfMore, Promise promise) {
         credentialRequestPromise = promise;
 
         Auth.CredentialsApi.request(getCredentialsApiClient(), credentialRequest)
@@ -163,7 +163,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                         if (credentialRequestResult.getStatus().isSuccess()) {
                             credentialRequestPromise.resolve(parseCredential(credentialRequestResult.getCredential()));
                         } else {
-                            resolveResult(credentialRequestResult.getStatus());
+                            resolveResult(promptIfMore, credentialRequestResult.getStatus());
                         }
                     }
                 });

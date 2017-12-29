@@ -1,7 +1,7 @@
 
 {
   "name": "react-native-android-credentials",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A basic wrapper to interact with the android Credentials API",
   "main": "index.js",
   "scripts": {
