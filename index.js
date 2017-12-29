@@ -30,7 +30,7 @@ export const createPickerConfig = (
 })
 
 if (Platform.OS === 'android') {
-    RNAndroidCredentials = NativeModules;
+    RNAndroidCredentials = NativeModules.RNAndroidCredentials;
 }
 
 const NotAndroidCredentials = {
@@ -51,8 +51,7 @@ const AndroidCredentials = {
         passwordLoginSupported,
         credentialPickerConfig,
         credentialHintPickerConfig,
-        [].push(identityProviders)
-    ),
+        Array.isArray(identityProviders) ? identityProviders : [ identityProviders ]),
     showSignInHint: (showCancelButton) => Promise.reject(new Error(`not supported on ${Platform.OS} yet`)),
     disableAutoSignIn: () => RNAndroidCredentials.disableAutoSignIn(),
     requestCredentials: (promptIfMore = false) => RNAndroidCredentials.requestCredentials(promptIfMore),
