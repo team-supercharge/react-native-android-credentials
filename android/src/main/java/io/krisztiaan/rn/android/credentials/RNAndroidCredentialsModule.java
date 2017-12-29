@@ -69,7 +69,6 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     public GoogleApiClient getCredentialsApiClient() {
         if (this.credentialsApiClient == null) {
             this.credentialsApiClient = new GoogleApiClient.Builder(reactContext).addConnectionCallbacks(this)
-                .enableAutoManage((FragmentActivity) getCurrentActivity(), this)
                 .addApi(Auth.CREDENTIALS_API)
                 .build();
         }
@@ -182,13 +181,14 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                     public void onResult(@NonNull Result result) {
                         Status status = result.getStatus();
                         if (status.isSuccess()) {
-                            promise.resolve(null);
+                            saveCredentialsPromise.resolve(null);
                         } else {
                             if (status.hasResolution()) {
                                 try {
                                     status.startResolutionForResult(getCurrentActivity(), RC_SAVE);
                                 } catch (IntentSender.SendIntentException e) {
-                                    promise.reject(e);
+                                    saveCredentialsPromise.reject(e);
+                                    saveCredentialsPromise = null;
                                 }
                             } else {
                                 promise.reject("406", "Unable to resolve");
@@ -204,6 +204,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 status.startResolutionForResult(getCurrentActivity(), RC_READ);
             } catch (IntentSender.SendIntentException e) {
                 credentialRequestPromise.reject(e);
+                credentialRequestPromise = null;
             }
         } else {
             credentialRequestPromise.reject(
@@ -214,7 +215,9 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
 
     @ReactMethod
     public void disableAutoSignIn() {
-        Auth.CredentialsApi.disableAutoSignIn(getCredentialsApiClient());
+        if (getCredentialsApiClient().isConnected()){
+            Auth.CredentialsApi.disableAutoSignIn(getCredentialsApiClient());
+        }
     }
 
     @Override
@@ -242,7 +245,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 hintPromise.reject("404", "Unable to resolve intent");
             }
         }
-        if (requestCode == RC_READ) {
+        if (requestCode == RC_READ && credentialRequestPromise != null) {
             if (resultCode == Activity.RESULT_OK) {
                 Credential credential = data.getParcelableExtra(Credential.EXTRA_KEY);
                 credentialRequestPromise.resolve(parseCredential(credential));
@@ -250,7 +253,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 credentialRequestPromise.reject("405", "Credential Read: NOT OK");
             }
         }
-        if (requestCode == RC_SAVE) {
+        if (requestCode == RC_SAVE && saveCredentialsPromise != null) {
             if (resultCode == Activity.RESULT_OK) {
                 saveCredentialsPromise.resolve(parseCredential((Credential) data.getParcelableExtra(Credential.EXTRA_KEY)));
             } else {
