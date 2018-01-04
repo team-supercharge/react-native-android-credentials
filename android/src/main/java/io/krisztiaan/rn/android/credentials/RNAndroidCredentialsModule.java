@@ -302,7 +302,11 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
         }
         if (requestCode == RC_SAVE && saveCredentialsPromise != null) {
             if (resultCode == Activity.RESULT_OK) {
-                saveCredentialsPromise.resolve(parseCredential((Credential) data.getParcelableExtra(Credential.EXTRA_KEY)));
+                Object o = null;
+                if (data != null) {
+                    parseCredential((Credential) data.getParcelableExtra(Credential.EXTRA_KEY));
+                }
+                saveCredentialsPromise.resolve(o);
             } else {
                 saveCredentialsPromise.reject("408", "SAVE: Canceled by user");
             }
