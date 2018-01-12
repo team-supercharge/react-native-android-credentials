@@ -207,9 +207,9 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                     @Override
                     public void onResult(@NonNull CredentialRequestResult credentialRequestResult) {
                         if (credentialRequestResult.getStatus().isSuccess()) {
-                            credentialRequestPromise.resolve(parseCredential(credentialRequestResult.getCredential()));
+                            if (credentialRequestPromise != null) credentialRequestPromise.resolve(parseCredential(credentialRequestResult.getCredential()));
                         } else {
-                            resolveResult(promptIfMore, credentialRequestResult.getStatus());
+                            if (credentialRequestResult != null) resolveResult(promptIfMore, credentialRequestResult.getStatus());
                         }
                     }
                 });
@@ -232,17 +232,17 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                     public void onResult(@NonNull Result result) {
                         Status status = result.getStatus();
                         if (status.isSuccess()) {
-                            saveCredentialsPromise.resolve(null);
+                            if (saveCredentialsPromise != null) saveCredentialsPromise.resolve(null);
                         } else {
                             if (status.hasResolution()) {
                                 try {
                                     status.startResolutionForResult(getCurrentActivity(), RC_SAVE);
                                 } catch (IntentSender.SendIntentException e) {
-                                    saveCredentialsPromise.reject(e);
+                                    if (saveCredentialsPromise != null) saveCredentialsPromise.reject(e);
                                     saveCredentialsPromise = null;
                                 }
                             } else {
-                                promise.reject("406", "Unable to resolve");
+                                if (saveCredentialsPromise != null) saveCredentialsPromise.reject("406", "Unable to resolve");
                             }
                         }
                     }
@@ -254,13 +254,15 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
             try {
                 status.startResolutionForResult(getCurrentActivity(), RC_READ);
             } catch (IntentSender.SendIntentException e) {
-                credentialRequestPromise.reject(e);
+                if (credentialRequestPromise != null) credentialRequestPromise.reject(e);
                 credentialRequestPromise = null;
             }
         } else {
-            credentialRequestPromise.reject(
+            if (credentialRequestPromise != null) {
+                credentialRequestPromise.reject(
                     String.valueOf(status.getStatusCode()),
                     status.getStatusMessage());
+            }
         }
     }
 
@@ -270,7 +272,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
             return;
         }
         Auth.CredentialsApi.disableAutoSignIn(credentialsApiClient);
-        promise.resolve(null);
+        if (promise != null) promise.resolve(null);
     }
 
     @Override
@@ -295,9 +297,9 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
         if (requestCode == RC_READ && credentialRequestPromise != null) {
             if (resultCode == Activity.RESULT_OK) {
                 Credential credential = data.getParcelableExtra(Credential.EXTRA_KEY);
-                credentialRequestPromise.resolve(parseCredential(credential));
+                if (saveCredentialsPromise != null) credentialRequestPromise.resolve(parseCredential(credential));
             } else {
-                credentialRequestPromise.reject("405", "Credential Read: NOT OK");
+                if (saveCredentialsPromise != null) credentialRequestPromise.reject("405", "Credential Read: NOT OK");
             }
         }
         if (requestCode == RC_SAVE && saveCredentialsPromise != null) {
@@ -306,9 +308,10 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 if (data != null) {
                     parseCredential((Credential) data.getParcelableExtra(Credential.EXTRA_KEY));
                 }
-                saveCredentialsPromise.resolve(o);
+
+                if (saveCredentialsPromise != null) saveCredentialsPromise.resolve(o);
             } else {
-                saveCredentialsPromise.reject("408", "SAVE: Canceled by user");
+                if (saveCredentialsPromise != null) saveCredentialsPromise.reject("408", "SAVE: Canceled by user");
             }
         }
     }
