@@ -196,7 +196,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
 
     @ReactMethod
     public void requestCredentials(final boolean promptIfMore, Promise promise) {
-        if (!checkIsClientOk(promise)) {
+        if (!checkIsClientOk(promise) || promise == null) {
             return;
         }
 
@@ -217,7 +217,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
 
     @ReactMethod
     public void saveCredentials(String email, String password, final Promise promise) {
-        if (!checkIsClientOk(promise)) {
+        if (!checkIsClientOk(promise) || promise == null) {
             return;
         }
 
@@ -266,7 +266,7 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
 
     @ReactMethod
     public void disableAutoSignIn(Promise promise) {
-        if (!checkIsClientOk(promise)) {
+        if (!checkIsClientOk(promise) || promise == null) {
             return;
         }
         Auth.CredentialsApi.disableAutoSignIn(credentialsApiClient);
