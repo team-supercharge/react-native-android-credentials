@@ -206,10 +206,22 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
                 .setResultCallback(new ResultCallback<CredentialRequestResult>() {
                     @Override
                     public void onResult(@NonNull CredentialRequestResult credentialRequestResult) {
-                        if (credentialRequestResult.getStatus().isSuccess()) {
+                        if (credentialRequestResult == null) {
+                            resolveResult(promptIfMore, null);
+                            return;
+                        }
+
+                        Status status = credentialRequestResult.getStatus();
+
+                        if (status == null) {
+                            resolveResult(promptIfMore, null);
+                            return;
+                        }
+
+                        if (status.isSuccess()) {
                             if (credentialRequestPromise != null) credentialRequestPromise.resolve(parseCredential(credentialRequestResult.getCredential()));
                         } else {
-                            if (credentialRequestResult != null) resolveResult(promptIfMore, credentialRequestResult.getStatus());
+                            if (credentialRequestResult != null) resolveResult(promptIfMore, status);
                         }
                     }
                 });
