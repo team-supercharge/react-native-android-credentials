@@ -250,6 +250,15 @@ public class RNAndroidCredentialsModule extends ReactContextBaseJavaModule
     }
 
     private void resolveResult(boolean promptIfMore, Status status) {
+        if (status == null) {
+            if (credentialRequestPromise != null) {
+                credentialRequestPromise.reject(
+                    String.valueOf(-1),
+                    "Status is unknown");
+            }
+            return;
+        }
+
         if (status.getStatusCode() == CommonStatusCodes.RESOLUTION_REQUIRED && promptIfMore) {
             try {
                 status.startResolutionForResult(getCurrentActivity(), RC_READ);
